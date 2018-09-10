@@ -1,5 +1,7 @@
 package com.dekagames.blot.algorithm;
 
+import com.dekagames.blot.spline.Contour;
+
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
@@ -22,8 +24,14 @@ public class RasterContour {
         int w = img.getWidth();
         //int h = img.getHeight();
 
+        int col;
         for (PixelXY p :pixels){
-            data[p.y*w+p.x] = color;
+            if (Math.abs(p.delta) > 16)
+                col = 0xFF000000;
+            else
+                col = color;
+
+            data[p.y*w+p.x] = col;
         }
     }
 
@@ -59,10 +67,123 @@ public class RasterContour {
                         // невозможно маленькие контуры просто не добавляем
                         if (cntr.pixels.size() > 4)
                             result.add(cntr);
+
                     }
                 }
             }
         }
+
+        return result;
+    }
+
+
+    /**
+     * Преобразует растровый контур в векторный
+     * @return векторный контур
+     */
+
+    public Contour toSpline(){
+        Contour result = new Contour();
+
+        // пробежимся по контуру - рассчитаем для каждой точки ее delta - отклонение точки от прямой,
+        // проведенной через ее соседей. Если у точки delta = 0, это значит что она лежит на одной прямой
+        // со своими соседями, т.е. является потенциальным "клиентом" на удаление из контура. Соседи для
+        // точки берутся на расстоянии step от нее.
+
+        int step = 1;
+        int size = pixels.size();
+
+        for (int i = 0; i < size; i++){
+            // i - предудущий сосед
+            // j - точка, для которой будем делать расчет
+            // k - последующий сосед
+            int j = i + step;
+            while (j >= size) j = j - size;   // закольцуем
+
+            int k = j + step;
+            while (k >= size) k = k - size;
+
+            // отклонение будем рассчитывать по формуле векторного произведения в координатной форме
+            // delta = x1*y2 - x2*y1, где (x1,y1) - координаты вектора (ik), (x2,y2) - координаты вектора (i,j)
+            // знак delta показывает по какую сторону от отрезка лежит точка. если delta = 0, то все три
+            // точки лежат на одной прямой
+            int x1 = pixels.get(k).x - pixels.get(i).x;
+            int y1 = pixels.get(k).y - pixels.get(i).y;
+            int x2 = pixels.get(j).x - pixels.get(i).x;
+            int y2 = pixels.get(j).y - pixels.get(i).y;
+            pixels.get(j).delta = x1*y2 - x2*y1;
+
+        }
+
+        // ---------------------- test ---------------------------------
+        // многоступенчатая оптимизация
+
+        //удалим точки с нулевым delta
+        for (int i = pixels.size()-1; i>=0; i--){
+            if (pixels.get(i).delta == 0)
+                pixels.remove(i);
+        }
+
+
+        step = 1;
+        size = pixels.size();
+
+        for (int i = 0; i < size; i++){
+            // i - предудущий сосед
+            // j - точка, для которой будем делать расчет
+            // k - последующий сосед
+            int j = i + step;
+            while (j >= size) j = j - size;   // закольцуем
+
+            int k = j + step;
+            while (k >= size) k = k - size;
+
+            // отклонение будем рассчитывать по формуле векторного произведения в координатной форме
+            // delta = x1*y2 - x2*y1, где (x1,y1) - координаты вектора (ik), (x2,y2) - координаты вектора (i,j)
+            // знак delta показывает по какую сторону от отрезка лежит точка. если delta = 0, то все три
+            // точки лежат на одной прямой
+            int x1 = pixels.get(k).x - pixels.get(i).x;
+            int y1 = pixels.get(k).y - pixels.get(i).y;
+            int x2 = pixels.get(j).x - pixels.get(i).x;
+            int y2 = pixels.get(j).y - pixels.get(i).y;
+            pixels.get(j).delta = x1*y2 - x2*y1;
+
+        }
+
+
+//--------------------------- test -------------------------------------- 3 ШАГ ----------------
+        //удалим точки с малым delta
+        for (int i = pixels.size()-1; i>=0; i--){
+            if (Math.abs(pixels.get(i).delta) <= 2)
+                pixels.remove(i);
+        }
+
+
+        step = 1;
+        size = pixels.size();
+
+        for (int i = 0; i < size; i++){
+            // i - предудущий сосед
+            // j - точка, для которой будем делать расчет
+            // k - последующий сосед
+            int j = i + step;
+            while (j >= size) j = j - size;   // закольцуем
+
+            int k = j + step;
+            while (k >= size) k = k - size;
+
+            // отклонение будем рассчитывать по формуле векторного произведения в координатной форме
+            // delta = x1*y2 - x2*y1, где (x1,y1) - координаты вектора (ik), (x2,y2) - координаты вектора (i,j)
+            // знак delta показывает по какую сторону от отрезка лежит точка. если delta = 0, то все три
+            // точки лежат на одной прямой
+            int x1 = pixels.get(k).x - pixels.get(i).x;
+            int y1 = pixels.get(k).y - pixels.get(i).y;
+            int x2 = pixels.get(j).x - pixels.get(i).x;
+            int y2 = pixels.get(j).y - pixels.get(i).y;
+            pixels.get(j).delta = x1*y2 - x2*y1;
+
+        }
+
 
         return result;
     }
@@ -228,6 +349,8 @@ public class RasterContour {
         if (p.x > 0 && p.y < h-1)           done_map[p.x-1][p.y+1] = true;      // слева снизу
         if (p.x < w-1 && p.y < h-1)         done_map[p.x+1][p.y+1] = true;      // справа снизу
     }
+
+
 
 
 }
