@@ -33,7 +33,7 @@ public class BrushTool extends Tool {
     public BrushTool(ToolPanel parent, ImageIcon icon, String hint){
         super(parent, icon, hint);
 
-        SIZE = 10;
+        SIZE = 8;
 
         imgBrush = new BufferedImage(2 * SIZE, 2 * SIZE, BufferedImage.TYPE_INT_ARGB);
         Graphics2D gr = imgBrush.createGraphics();

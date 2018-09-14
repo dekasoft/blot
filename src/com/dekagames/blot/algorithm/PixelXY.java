@@ -11,6 +11,9 @@ public class PixelXY {
     // фактически - векторное произведение в координатной форме
     public int delta;
 
+    public float cosfi;
+
+    public float fdelta;
 
     public PixelXY(int x, int y) {
         this.x = x;
