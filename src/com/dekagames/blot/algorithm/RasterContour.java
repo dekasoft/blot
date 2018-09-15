@@ -91,7 +91,8 @@ public class RasterContour {
     public Contour toSpline(BufferedImage img, int brushSize){
         Contour result = new Contour();
 
-        final float cornerRatio = 0.4f;   // соотношение при котором точка контура считается угловой
+        final float cornerRatio = 0.5f;     // соотношение при котором точка контура считается угловой
+        final float cornerCos   = -0.8f;    // точки с косинусом меньше - не рассматриваем
 
         final int[] data = ((DataBufferInt) img.getRaster().getDataBuffer()).getData();
         int w = img.getWidth();
@@ -102,13 +103,45 @@ public class RasterContour {
             pixels.remove(i);
         }
 
+        // посчитаем косинус угла при каждой точке
+        int size = pixels.size();
+        int step = 1+brushSize/3;
+
+        for (int i = 0; i < size; i++){
+            // i - предудущий сосед
+            // j - точка, для которой будем делать расчет
+            // k - последующий сосед
+            int j = i + step;
+            while (j >= size) j = j - size;   // закольцуем
+
+            int k = j + step;
+            while (k >= size) k = k - size;
+
+            // косинус угла будем рассчитывать по формуле скалярного произведения в координатной форме
+            // cosfi = (x1*x2 + y1*y2)/(|x1,y1|*|x2,y2|) , где (x1,y1) - координаты вектора (ij),
+            // (x2,y2) - координаты вектора (k,j)
+            int x1 = pixels.get(i).x - pixels.get(j).x;
+            int y1 = pixels.get(i).y - pixels.get(j).y;
+            int x2 = pixels.get(k).x - pixels.get(j).x;
+            int y2 = pixels.get(k).y - pixels.get(j).y;
+            float len1 = (float)Math.sqrt(x1*x1 + y1*y1);
+            float len2 = (float)Math.sqrt(x2*x2 + y2*y2);
+
+            pixels.get(j).cosfi = (x1*x2 + y1*y2)/(len1*len2);
+        }
+
+
         // детектор SUSAN
         int radius = 1+brushSize/2;       // радиус круга для просмотра. Должен зависеть от размера кисти которым рисовалось пятно (?)
-        int size = pixels.size();
+        size = pixels.size();
 
         // пробежим по всем пикселям контура, будем считать соотношение закрашенных и незакрашенных пикселей
-        // в круге с центром в текущем пикселе
+        // в круге с центром в текущем пикселе/
+        // предварительно отберем по косинусу
         for (int i = 0; i < size; i++){
+            if (pixels.get(i).cosfi < cornerCos)
+                continue;
+
             int x = pixels.get(i).x;
             int y = pixels.get(i).y;
 
@@ -129,7 +162,7 @@ public class RasterContour {
 
                     // проверка на выход за границы изображения  - эти точки считаем пустыми
                     if (j<0 || j >= w || k<0 || k>=h) {
-                        f_empty += 1/distance;          // чем дальше пискель - тем меньше его вес
+                        f_empty += distance;          // чем дальше пискель - тем меньше его вес
                         continue;
                     }
 
@@ -145,13 +178,62 @@ public class RasterContour {
             if (fratio > 1)
                 fratio = 1/fratio;       // для упрощения (острый/тупой угол)
 
+            pixels.get(i).fratio = fratio;      // понадобится в будущем, при удалении лишних углов
             if (fratio < cornerRatio)
                 pixels.get(i).isCorner = true;
+
         }
 
 
+        // пробежим по контуру в поисках нескольких угловых точек подряд - оставим из них одну, среднюю.
+        // одиночные угловые точки не выкидываем, так как применяется предварительное отсечение по
+        // косинусу угла
+
+        // начинать надо с пикселя, следующего за обычным (неугловым), поэтому найдем такой
+        int start = 0;
+        for (start = 0; start < pixels.size() &&  pixels.get(start).isCorner; start++);   // пустой цикл  - ищем неугловой пиксель
+
+        int n_corners = 0;      // число подряд идущих углов
+
+        for (int i = 1; i <= pixels.size(); i++){       // i=1 потому что начинаем со следующего за пустым пикселем
+            int ind = start+i;
+            while (ind >= pixels.size())           // закольцуем
+                    ind -= pixels.size();
+
+
+            if (pixels.get(ind).isCorner){      // если пиксель угловой, сразу его отменим, но посчитаем
+                pixels.get(ind).isCorner = false;
+                n_corners++;
+            } else {                            // пиксель неугловой
+                if (n_corners == 1){            // если пиксель был один, то вернем его на место - это точно угол
+                    int prev = ind - 1;
+                    while (prev < 0)
+                        prev += pixels.size();
+
+                    pixels.get(prev).isCorner = true;
+                }
+
+                if (n_corners > 1) {           // и перед ним были несколько угловых - найдем центральный (они уже все удалены)
+                    int corner_index = ind - n_corners/2 - 1;   // индекс реального угла
+                    while (corner_index < 0)
+                        corner_index += pixels.size();
+
+                    pixels.get(corner_index).isCorner = true;
+                }
+
+                n_corners = 0;
+            }
+        }
+
+
+        // углы найдены - теперь упростим остальные неугловые точки
         // тупо проредим контур если он большой
-        float distance = 0;
+        final int minDist = brushSize;
+        final int maxDist = 4 * brushSize;
+
+        float min_distance = 0;     // счетчик минимальной дистанции между точками
+        float max_distance = 0;     // счетчик максимальной дистанции между точками
+
         if (pixels.size() > 3) {
 
             ArrayList<PixelXY> tmpPixels = new ArrayList<>();
@@ -162,338 +244,37 @@ public class RasterContour {
 
                 if (pixels.get(i).isCorner){            // угловые точки всегда добавляем
                     tmpPixels.add(pixels.get(i));
-                    distance = 0;
+                    min_distance = 0;
+                    max_distance = 0;
                 } else {
                     int x1 = pixels.get(i).x;
                     int y1 = pixels.get(i).y;
                     int x2 = pixels.get(j).x;
                     int y2 = pixels.get(j).y;
-                    distance += Math.hypot((x1 - x2), (y1 - y2));
+                    float distance = (float)Math.hypot((x1 - x2), (y1 - y2));
+                    min_distance += distance;
+                    max_distance += distance;
 
-                    if (distance >= brushSize){
-                        tmpPixels.add(pixels.get(i));
-                        distance = 0;
+                    if (min_distance >= minDist){       // набрали минимальную дистанцию
+
+                       min_distance = 0;
+
+                       if (max_distance >= maxDist){    // набрали максимальную дистанцию - ставим точку по-любому
+                           tmpPixels.add(pixels.get(i));
+                           max_distance = 0;
+                       } else {                         // если не набрали еще максимальную дистанцию - проверим плоскоту участка
+                           // если участок не сильно плоский, то добавим точку, иначе пойдем дальше
+                           if (pixels.get(i).cosfi > cornerCos) {
+                               tmpPixels.add(pixels.get(i));
+                               min_distance = 0;
+                               max_distance = 0;
+                           }
+                       }
                     }
                 }
             }
-
             pixels = tmpPixels;
         }
-
-
-
-
-
-
-//            // отклонение будем рассчитывать по формуле векторного произведения в координатной форме
-//            // delta = x1*y2 - x2*y1, где (x1,y1) - координаты вектора (ik), (x2,y2) - координаты вектора (i,j)
-//            // знак delta показывает по какую сторону от отрезка лежит точка. если delta = 0, то все три
-//            // точки лежат на одной прямой
-//        // пробежим по контуру, беря по n точек будем считать накопленное отклонение от отрезка
-//        int size = pixels.size();
-//        int n = 5;
-//
-//        for (int i = 0; i < size; i++){
-//            // a1,a2,a3,a4,a5 - исследуемые точки
-//            int a1 = i;
-//            int an = i+n;
-//            while (an >= size) an = an - size;   // закольцуем
-//
-//            // координаты вектора, относительно которого будем считать
-//            int x2 = (pixels.get(an).x - pixels.get(a1).x);
-//            int y2 = (pixels.get(an).y - pixels.get(a1).y);
-//
-//            // пробежимся по каждой точке
-//            for (int j = 1; j < n; j++){
-//                int ind = i+j;      // просчитываемая точка
-//                while (ind >= size) ind = ind - size;   // закольцуем
-//
-//
-//                int jx = pixels.get(ind).x;     // реальная координата
-//                int jy = pixels.get(ind).y;
-//
-//                int x1 = (jx - pixels.get(a1).x);
-//                int y1 = (jy - pixels.get(a1).y);
-//
-//                pixels.get(ind).delta += x1*y2 - x2*y1;
-//            }
-//
-//        }
-//        // чем круче угол в точке, то есть чем больше вероятность, что данная точка является угловой точкой
-//        // тем больше ее delta отличается от deltы ее соседей. То есть у плавного загиба delta плавно нарастает
-//        // и плавно спадает, а чем круче угол, тем резче прыгает в нем значение delta
-//
-//        // пробежимся еще раз по контуру и запишем для каждой точки, насколько дельта отличается от ее соседей
-//        for (int i = 0; i < size; i++){
-//            // i,j,k - исследуемые точки
-//            int j = i+1;
-//            while (j >= size) j -= size;   // закольцуем
-//            int k = j+1;
-//            while (k >= size) k -= size;   // закольцуем
-//
-//
-//            int di = pixels.get(i).delta;
-//            int dj = pixels.get(j).delta;
-//            int dk = pixels.get(k).delta;
-//
-//            pixels.get(j).deltaDelta = Math.abs(dj - di) + Math.abs(dj - dk);
-//
-//        }
-//
-
-
-
-
-//-----------------------------------------------------------------------------------------------------
-//        int size = pixels.size();
-//        int step = 1;
-//
-//        // берем по три точки с каждой стороны от искомой  и считаем среднее арифметическое их координат
-//
-//
-//        for (int i = 0; i < size; i++){
-//            // a1,a2,a3 - предудущие 3 точки
-//            // j - точка, для которой будем делать расчет
-//            // b1,b2,b3 - последующий 3 точки
-//            int a1 = i;
-//            int a2 = i+1;
-//            while (a2 >= size) a2 = a2 - size;   // закольцуем
-//
-////            int a3 = a2+1;
-////            while (a3 >= size) a3 = a3 - size;   // закольцуем
-//
-//
-//            int j = a2 + 1;
-//            while (j >= size) j = j - size;
-//
-//            int b1 = j+1;
-//            while (b1 >= size) b1 = b1 - size;   // закольцуем
-//
-//            int b2 = b1+1;
-//            while (b2 >= size) b2 = b2 - size;   // закольцуем
-//
-////            int b3 = b2+1;
-////            while (b3 >= size) b3 = b3 - size;   // закольцуем
-//
-//            int xa = (pixels.get(a1).x + pixels.get(a2).x)/2;// + pixels.get(a).x)/3;
-//            int ya = (pixels.get(a1).y + pixels.get(a2).y)/2;// + pixels.get(a3).y)/3;
-//
-//            int xb = (pixels.get(b1).x + pixels.get(b2).x)/2;// + pixels.get(b3).x)/3;
-//            int yb = (pixels.get(b1).y + pixels.get(b2).y)/2;// + pixels.get(b3).y)/3;
-//
-//            // косинус угла будем рассчитывать по формуле скалярного произведения в координатной форме
-//            // cosfi = (x1*x2 + y1*y2)/(|x1,y1|*|x2,y2|) , где (x1,y1) - координаты вектора (ij),
-//            // (x2,y2) - координаты вектора (k,j)
-//            int x1 = xa - pixels.get(j).x;
-//            int y1 = ya - pixels.get(j).y;
-//            int x2 = xb - pixels.get(j).x;
-//            int y2 = yb - pixels.get(j).y;
-//
-//            float len1 = (float)Math.sqrt(x1*x1 + y1*y1);
-//            float len2 = (float)Math.sqrt(x2*x2 + y2*y2);
-//
-//            pixels.get(j).cosfi = (x1*x2 + y1*y2)/(len1*len2);
-//
-//        }
-
-
-
-
-//--------------------------------------------------------------------------------------------------------------------
-
-//        //удалим точки, явно лежащие на одной прямой cosfi < -0.9
-//        for (int i = pixels.size()-1; i>=0; i--){
-//            if (pixels.get(i).cosfi < -0.5)
-//                pixels.remove(i);
-//        }
-
-
-//        // проредим точки, лежащие рядом друг с другом (такие пары всегда избыточны и потом повысится точность вычисления угла)
-//        for (int i = pixels.size()-1; i>=0; i--){
-//            int j = i-1;
-//            if (j>=0) {
-//                int xj = pixels.get(j).x;
-//                int xi = pixels.get(i).x;
-//                int yj = pixels.get(j).y;
-//                int yi = pixels.get(i).y;
-//
-//                if (Math.abs(xi-xj)<=1 && Math.abs(yi-yj)<=1)
-//                    pixels.remove(i);
-//            }
-//        }
-//
-//
-//        // пересчитаем по косинусу угла
-//        int size = pixels.size();
-//        int step = 1;//2 + size/100;
-//
-//        for (int i = 0; i < size; i++){
-//            // i - предудущий сосед
-//            // j - точка, для которой будем делать расчет
-//            // k - последующий сосед
-//            int j = i + step;
-//            while (j >= size) j = j - size;   // закольцуем
-//
-//            int k = j + step;
-//            while (k >= size) k = k - size;
-//
-//            // косинус угла будем рассчитывать по формуле скалярного произведения в координатной форме
-//            // cosfi = (x1*x2 + y1*y2)/(|x1,y1|*|x2,y2|) , где (x1,y1) - координаты вектора (ij),
-//            // (x2,y2) - координаты вектора (k,j)
-//            int x1 = pixels.get(i).x - pixels.get(j).x;
-//            int y1 = pixels.get(i).y - pixels.get(j).y;
-//            int x2 = pixels.get(k).x - pixels.get(j).x;
-//            int y2 = pixels.get(k).y - pixels.get(j).y;
-//            float len1 = (float)Math.sqrt(x1*x1 + y1*y1);
-//            float len2 = (float)Math.sqrt(x2*x2 + y2*y2);
-//
-//            pixels.get(j).cosfi = (x1*x2 + y1*y2)/(len1*len2);
-//        }
-//
-//        //удалим точки, явно лежащие на одной прямой: cosfi < -0.9
-//        for (int i = pixels.size()-1; i>=0; i--){
-//            if (pixels.get(i).cosfi < -0.8)
-//                pixels.remove(i);
-//        }
-//
-//
-//        // пересчитаем по косинусу угла
-//        size = pixels.size();
-//        step = 1;//2 + size/100;
-//
-//        for (int i = 0; i < size; i++){
-//            // i - предудущий сосед
-//            // j - точка, для которой будем делать расчет
-//            // k - последующий сосед
-//            int j = i + step;
-//            while (j >= size) j = j - size;   // закольцуем
-//
-//            int k = j + step;
-//            while (k >= size) k = k - size;
-//
-//            // косинус угла будем рассчитывать по формуле скалярного произведения в координатной форме
-//            // cosfi = (x1*x2 + y1*y2)/(|x1,y1|*|x2,y2|) , где (x1,y1) - координаты вектора (ij),
-//            // (x2,y2) - координаты вектора (k,j)
-//            int x1 = pixels.get(i).x - pixels.get(j).x;
-//            int y1 = pixels.get(i).y - pixels.get(j).y;
-//            int x2 = pixels.get(k).x - pixels.get(j).x;
-//            int y2 = pixels.get(k).y - pixels.get(j).y;
-//            float len1 = (float)Math.sqrt(x1*x1 + y1*y1);
-//            float len2 = (float)Math.sqrt(x2*x2 + y2*y2);
-//
-//            pixels.get(j).cosfi = (x1*x2 + y1*y2)/(len1*len2);
-//        }
-//
-//        //удалим точки, явно лежащие на одной прямой: cosfi < -0.9
-//        for (int i = pixels.size()-1; i>=0; i--){
-//            if (pixels.get(i).cosfi < -0.8)
-//                pixels.remove(i);
-//        }
-//
-//
-//
-//
-//
-        // пробежимся по контуру - рассчитаем для каждой точки ее delta - отклонение точки от прямой,
-        // проведенной через ее соседей. Если у точки delta = 0, это значит что она лежит на одной прямой
-        // со своими соседями, т.е. является потенциальным "клиентом" на удаление из контура. Соседи для
-        // точки берутся на расстоянии step от нее.
-
-//        int step = 1;
-//        int size = pixels.size();
-//
-//        for (int i = 0; i < size; i++){
-//            // i - предудущий сосед
-//            // j - точка, для которой будем делать расчет
-//            // k - последующий сосед
-//            int j = i + step;
-//            while (j >= size) j = j - size;   // закольцуем
-//
-//            int k = j + step;
-//            while (k >= size) k = k - size;
-//
-//            // отклонение будем рассчитывать по формуле векторного произведения в координатной форме
-//            // delta = x1*y2 - x2*y1, где (x1,y1) - координаты вектора (ik), (x2,y2) - координаты вектора (i,j)
-//            // знак delta показывает по какую сторону от отрезка лежит точка. если delta = 0, то все три
-//            // точки лежат на одной прямой
-//            int x1 = pixels.get(k).x - pixels.get(i).x;
-//            int y1 = pixels.get(k).y - pixels.get(i).y;
-//            int x2 = pixels.get(j).x - pixels.get(i).x;
-//            int y2 = pixels.get(j).y - pixels.get(i).y;
-//            pixels.get(j).delta = x1*y2 - x2*y1;
-//
-//        }
-//
-//        // ---------------------- test ---------------------------------
-//        // многоступенчатая оптимизация
-//
-//        //удалим точки с нулевым delta
-//        for (int i = pixels.size()-1; i>=0; i--){
-//            if (Math.abs(pixels.get(i).delta) < 1)
-//                pixels.remove(i);
-//        }
-//
-//
-//        step = 1;
-//        size = pixels.size();
-//
-//        for (int i = 0; i < size; i++){
-//            // i - предудущий сосед
-//            // j - точка, для которой будем делать расчет
-//            // k - последующий сосед
-//            int j = i + step;
-//            while (j >= size) j = j - size;   // закольцуем
-//
-//            int k = j + step;
-//            while (k >= size) k = k - size;
-//
-//            // отклонение будем рассчитывать по формуле векторного произведения в координатной форме
-//            // delta = x1*y2 - x2*y1, где (x1,y1) - координаты вектора (ik), (x2,y2) - координаты вектора (i,j)
-//            // знак delta показывает по какую сторону от отрезка лежит точка. если delta = 0, то все три
-//            // точки лежат на одной прямой
-//            int x1 = pixels.get(k).x - pixels.get(i).x;
-//            int y1 = pixels.get(k).y - pixels.get(i).y;
-//            int x2 = pixels.get(j).x - pixels.get(i).x;
-//            int y2 = pixels.get(j).y - pixels.get(i).y;
-//            pixels.get(j).delta = x1*y2 - x2*y1;
-//
-//        }
-//
-//
-////--------------------------- test -------------------------------------- 3 ШАГ ----------------
-//        //удалим точки с малым delta
-//        for (int i = pixels.size()-1; i>=0; i--){
-//            if (Math.abs(pixels.get(i).delta) < 4)
-//                pixels.remove(i);
-//        }
-//
-//
-//        step = 1;
-//        size = pixels.size();
-//
-//        for (int i = 0; i < size; i++){
-//            // i - предудущий сосед
-//            // j - точка, для которой будем делать расчет
-//            // k - последующий сосед
-//            int j = i + step;
-//            while (j >= size) j = j - size;   // закольцуем
-//
-//            int k = j + step;
-//            while (k >= size) k = k - size;
-//
-//            // отклонение будем рассчитывать по формуле векторного произведения в координатной форме
-//            // delta = x1*y2 - x2*y1, где (x1,y1) - координаты вектора (ik), (x2,y2) - координаты вектора (i,j)
-//            // знак delta показывает по какую сторону от отрезка лежит точка. если delta = 0, то все три
-//            // точки лежат на одной прямой
-//            int x1 = pixels.get(k).x - pixels.get(i).x;
-//            int y1 = pixels.get(k).y - pixels.get(i).y;
-//            int x2 = pixels.get(j).x - pixels.get(i).x;
-//            int y2 = pixels.get(j).y - pixels.get(i).y;
-//            pixels.get(j).delta = x1*y2 - x2*y1;
-//
-//        }
-
-
         return result;
     }
 
