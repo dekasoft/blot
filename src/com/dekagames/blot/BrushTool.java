@@ -71,7 +71,7 @@ public class BrushTool extends Tool {
         // тест: нарисуем все контуры
         int col = 0xFF0000FF;
         for (RasterContour c:contours){
-            c.toSpline();               // найдем delta для теста
+            c.toSpline(imgTmp, SIZE);               // найдем delta для теста
             c.testDraw(imgTmp, col);
             col = 0xFF000000 | (col * 100);
         }
