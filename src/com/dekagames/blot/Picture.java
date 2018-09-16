@@ -24,8 +24,8 @@ public class Picture {
     public int width, height;
     public Tool currentTool;
 
-    private BufferedImage image;
-    private Graphics2D graphics2D;
+//    private BufferedImage image;
+//    private Graphics2D graphics2D;
 
 
     public ArrayList<Layer> layers;                 // массив слоев
@@ -36,8 +36,8 @@ public class Picture {
         width = 600;
         height = 600;
 
-        image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        graphics2D = image.createGraphics();
+//        image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+//        graphics2D = image.createGraphics();
 
         layers = new ArrayList<>();
     }
@@ -52,13 +52,20 @@ public class Picture {
 
 
 
-    public Graphics2D getGraphics(){
-        return graphics2D;
-    }
+//    public Graphics2D getGraphics(){
+//        return graphics2D;
+//    }
+//
+//    public BufferedImage getImage(){
+//        return image;
+//    }
 
-    public BufferedImage getImage(){
-        return image;
-    }
 
+    // рисует картинку на img (т.е. на DrawPanel)
+    public void draw(BufferedImage img){
+        for (Layer layer:layers)
+            layer.draw(img);
+
+    }
 
 }

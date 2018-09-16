@@ -14,6 +14,7 @@ public class DrawPanelScroll extends JPanel {
     public DrawPanelScroll(DrawPanel drawPanel){
         super(new BorderLayout());
 
+        setMinimumSize(new Dimension(200, 200));
         this.drawPanel = drawPanel;
 
         hscroll = new JScrollBar(Adjustable.HORIZONTAL);

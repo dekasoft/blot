@@ -1,13 +1,11 @@
 package com.dekagames.blot;
 
-import com.dekagames.blot.algorithm.PixelXY;
 import com.dekagames.blot.algorithm.RasterContour;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
-import java.awt.image.DataBufferInt;
 import java.util.ArrayList;
 
 
@@ -47,6 +45,14 @@ public class BrushTool extends Tool {
     public void mousePress(MouseEvent e){
         // создадим временное изображение по размеру рисовательной панели, на которое будем рисовать
         DrawPanel dpnl = toolPanel.mainWindow.drawPanel;
+
+        // сохраним текущие характеристики DrawPanel, чтобы потом корректно пересчитать
+        // все в векторной форме
+        fScale = dpnl.getScale();
+        leftDrawPanel = dpnl.getLeft();
+        topDrawPanel = dpnl.getTop();
+
+
         img_h = dpnl.getHeight();
         img_w = dpnl.getWidth();
         imgTmp = new BufferedImage(img_w, img_h, BufferedImage.TYPE_INT_ARGB);
@@ -71,7 +77,7 @@ public class BrushTool extends Tool {
         // тест: нарисуем все контуры
         int col = 0xFF0000FF;
         for (RasterContour c:contours){
-            c.toSpline(imgTmp, SIZE);               // найдем delta для теста
+            c.toVContour(imgTmp, SIZE);               // найдем delta для теста
             c.testDraw(imgTmp, col);
             col = 0xFF000000 | (col * 100);
         }
@@ -115,7 +121,7 @@ public class BrushTool extends Tool {
     }
 
     public void finish(){
-        Picture.getInstance().getGraphics().drawImage(imgTmp, 0,0, null);
+        //Picture.getInstance().getGraphics().drawImage(imgTmp, 0,0, null);
         toolPanel.mainWindow.drawPanel.repaint();
     }
 }

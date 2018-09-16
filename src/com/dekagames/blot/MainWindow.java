@@ -103,6 +103,7 @@ public class MainWindow extends JFrame implements ActionListener {
         initControls();
 
         setSize(1200, 600);
+        setMinimumSize(new Dimension(600,400));
         setLocation(0,0);
     }
 

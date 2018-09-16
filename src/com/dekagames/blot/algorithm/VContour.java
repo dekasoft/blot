@@ -1,21 +1,26 @@
-package com.dekagames.blot.spline;
+package com.dekagames.blot.algorithm;
 
 
-// класс замкнутого контура, состоящего из точек и соединяющих их сегментов кривых Безье
+/**
+ * Класс замкнутого контура, состоящего из векторных точек и соединяющих их сегментов
+ * кривых Безье.
+ *
+ */
+
 
 import java.util.ArrayList;
 
-public class Contour {
+public class VContour {
 
-    private ArrayList<Point> points;
+    private ArrayList<VPoint> points;
 
 
-    public Contour(){
+    public VContour(){
         points = new ArrayList<>();
     }
 
 
-    public void addPoint(Point p){
+    public void addPoint(VPoint p){
         if (!points.contains(p))
             points.add(p);
     }

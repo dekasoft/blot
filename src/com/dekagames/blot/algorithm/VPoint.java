@@ -1,12 +1,21 @@
-package com.dekagames.blot.spline;
+package com.dekagames.blot.algorithm;
 
-// класс описывающий крайние точки сегмента кривой Безье
+/** Класс векторной точки.
+ *
+ * Из таких точек состоит векторный контур. Являются фактически
+ * крайними точками сегментов кривой Безье, из которых состоит векторный контур
+ *
+ */
 
-public class Point {
+public class VPoint {
 
     public boolean isCorner;    // является ли точка острым углом.
                                 // если true, то p1x, p2x, p1y, p2y не учитываются (равны x и y)
     public double x,y;          // координаты самой точки
+
+    // координаты опорных точек. Опорные точки для неугловых точек контура лежат на одной прямой
+    // касательной к контуру. Для угловых точек координаты опорных точек совпадают с координатами
+    // x,y
     public double p1x, p1y;     // координаты первой опорной точки (второй опорной предыдущего сегмента
                                 //  кривой Безье)
     public double p2x, p2y;     // координаты второй опорной точки (первой опорной точки начинающегося
@@ -14,7 +23,7 @@ public class Point {
 
 
     // конструктор создания обычной точки
-    public Point(double x, double y, double p1x, double p1y, double p2x, double p2y){
+    public VPoint(double x, double y, double p1x, double p1y, double p2x, double p2y){
         this.x = x;
         this.y = y;
         this.p1x = p1x;
@@ -24,14 +33,14 @@ public class Point {
     }
 
     // конструктор создания угла
-    public Point(double x, double y, boolean isCorner){
+    public VPoint(double x, double y, boolean isCorner){
         this.isCorner = isCorner;
         this.x = p1x = p2x = x;
         this.y = p1y = p2y = y;
     }
 
     // конструктор копирования
-    public Point(Point p){
+    public VPoint(VPoint p){
         x = p.x;
         y = p.y;
         p1x = p.p1x;

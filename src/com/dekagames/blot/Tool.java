@@ -10,6 +10,16 @@ import java.awt.event.MouseEvent;
 public class Tool {
     public ImageIcon    icon;           // button image
     public String       hint;           // button hint
+
+    // в начале использования инструмента сюда будем сохранять текущий на тот момент
+    // масштаб DrawPanel
+    protected float fScale;
+
+    // в начале использования инструмента сюда будем сохранять текущие на тот момент
+    // координаты левого верхнего угла DrawPanel
+    protected double leftDrawPanel, topDrawPanel;
+
+
     protected ToolPanel   toolPanel;
 
 

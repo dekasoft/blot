@@ -1,7 +1,5 @@
 package com.dekagames.blot.algorithm;
 
-import com.dekagames.blot.spline.Contour;
-
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
@@ -88,8 +86,8 @@ public class RasterContour {
      * @return векторный контур
      */
 
-    public Contour toSpline(BufferedImage img, int brushSize){
-        Contour result = new Contour();
+    public VContour toVContour(BufferedImage img, int brushSize){
+        VContour result = new VContour();
 
         final float cornerRatio = 0.5f;     // соотношение при котором точка контура считается угловой
         final float cornerCos   = -0.8f;    // точки с косинусом меньше - не рассматриваем
@@ -275,6 +273,36 @@ public class RasterContour {
             }
             pixels = tmpPixels;
         }
+
+        // создадим векторный контур, рассчитаем и запишем в него точки
+        size = pixels.size();
+        for (int i = 0; i < size; i++){
+
+            int x = pixels.get(i).x;
+            int y = pixels.get(i).y;
+
+            // если угловая точка
+            if (pixels.get(i).isCorner){
+//                result.addPoint(new VPoint());
+            }
+            // предыдущая и последующая точки
+            int prev = i-1;
+            while(prev < 0)
+                prev += size;
+
+            int next = i+1;
+            while(next >=size)
+                next -= size;
+
+            int x_prev = pixels.get(prev).x;
+            int y_prev = pixels.get(prev).y;
+
+            int x_next = pixels.get(next).x;
+            int y_next = pixels.get(next).y;
+
+
+        }
+
         return result;
     }
 
