@@ -50,6 +50,15 @@ public class Picture {
         return instance;
     }
 
+    /**
+     * Возвращает размер одного пикселя в векторных координатах.
+     * Применяется для пересчета временных растровых координат в векторные
+     * @return
+     */
+    public double getPixelSize(){
+        return 2.0/height;             // Y [-1;1] приходится на height пикселей
+    }
+
 
 
 //    public Graphics2D getGraphics(){

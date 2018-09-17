@@ -1,5 +1,7 @@
 package com.dekagames.blot.algorithm;
 
+import com.dekagames.blot.Picture;
+
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
@@ -43,8 +45,9 @@ public class RasterContour {
     /** метод принимает на вход изображение и цвет, для которого необходимо найти контуры
      и выделяет из него связанные контуры, состоящие из упорядоченных растровых точек,
      возвращая их в виде ArrayList-а
+
      */
-    public static ArrayList<RasterContour> get_contours_from_points(BufferedImage img, Color color){
+    public static ArrayList<RasterContour> get_raster_contours(BufferedImage img, Color color){
         ArrayList<RasterContour> result = new ArrayList<>();
 
         // найдем все контурные точки как карту boolean-ов
@@ -275,7 +278,11 @@ public class RasterContour {
         }
 
         // создадим векторный контур, рассчитаем и запишем в него точки
+        // векторный контур создается так, что координата (0;0) находится
+        // в левом верхнем углу, как у растра. Для перевода в систему координат
+        // Picture, необходимо вызвать соответствующий метод
         size = pixels.size();
+        double factor = Picture.getInstance().getPixelSize();   // коэффициент перевода в вектор
         for (int i = 0; i < size; i++){
 
             int x = pixels.get(i).x;
@@ -283,7 +290,8 @@ public class RasterContour {
 
             // если угловая точка
             if (pixels.get(i).isCorner){
-//                result.addPoint(new VPoint());
+                result.addPoint(new VPoint(x * factor, y * factor, true ));
+                continue;
             }
             // предыдущая и последующая точки
             int prev = i-1;
@@ -299,6 +307,36 @@ public class RasterContour {
 
             int x_next = pixels.get(next).x;
             int y_next = pixels.get(next).y;
+
+            int dx = x_next - x-prev;
+            int dy = y_next - y_prev;
+
+            // расстояние между предыдущей и последующей точками
+            double len = Math.sqrt(dx*dx + dy*dy);
+
+            // расстояние до предыдущей и последующей точек
+            double l1 = Math.hypot(x-x_prev, y-y_prev);
+//            double l2 = Math.hypot(x-x_next, y-y_next);
+
+            // расстояние от текущей точки, до прямой проведенной через предыдущую
+            // и последующие точки
+            double dist =  Math.abs(dy*x - dx*y + x_next*y_prev - y_next*x_prev)/len;
+
+            // расстояние от точки пересечения перпендикуляра к прямой между предудущей
+            // и последующей точками, опущенного из текущей точки, до предыдущей и последующей
+            // точек соответственно
+            double len_prev = Math.sqrt(l1*l1-dist*dist);
+            double len_next = len-l1;
+
+            // координаты опорных точек в растровой форме
+            double p1x = x - (len_prev * dx/len)/3;
+            double p1y = y - (len_prev * dy/len)/3;
+
+            double p2x = x + (len_next * dx/len)/3;
+            double p2y = y + (len_next * dy/len)/3;
+
+            // добавим точку
+            result.addPoint(new VPoint(x*factor, y*factor, p1x*factor, p1y*factor, p2x*factor, p2y*factor));
 
 
         }

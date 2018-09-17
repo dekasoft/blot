@@ -11,8 +11,8 @@ import java.awt.image.BufferedImage;
  * DrawPanel
  */
 public class DrawPanel extends JPanel implements MouseListener, MouseMotionListener, MouseWheelListener {
-    public static final float MAX_SCALE = 100.0f;
-    public static final float MIN_SCALE = 0.01f;
+    private static final float MAX_SCALE = 100.0f;
+    private static final float MIN_SCALE = 0.01f;
 
 
     private double left,top;   // координаты Picture, отображаемые в верхнем левом углу.
@@ -79,6 +79,13 @@ public class DrawPanel extends JPanel implements MouseListener, MouseMotionListe
         return left;
     }
 
+    // вызывается для прорисовки поверх основного изображения панели временных
+    // изображений: кисти во время рисования, рамки выделения и т.д.
+    public void drawTmpImg(BufferedImage imgTmp){
+        Graphics gr = getGraphics();
+        gr.drawImage(img, 0,0, null);       // рисуем свое изображение
+        gr.drawImage(imgTmp, 0,0, null);    // рисуем изображение от Tool-a
+    }
 
     @Override
     public void paint(Graphics gr){

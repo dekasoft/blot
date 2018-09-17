@@ -2,14 +2,15 @@ package com.dekagames.blot;
 
 import javax.swing.*;
 import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
 
 
 /**
  * Ancestor class for all tools
  */
 public class Tool {
-    public ImageIcon    icon;           // button image
-    public String       hint;           // button hint
+    protected ImageIcon    icon;           // button image
+    protected String       hint;           // button hint
 
     // в начале использования инструмента сюда будем сохранять текущий на тот момент
     // масштаб DrawPanel
@@ -30,8 +31,10 @@ public class Tool {
     }
 
     // инструмент окончил рисование, требуется перерисовка Picture на DrawPanel
-    public void finish(){
-        toolPanel.mainWindow.drawPanel.repaint();
+    // imgTmp - временное изображение инструмента: кисть во время рисования
+    // до векторизации, рамка выделения и т.д.
+    public void finish(BufferedImage tmpImage){
+        toolPanel.mainWindow.drawPanel.drawTmpImg(tmpImage);
     }
 
 

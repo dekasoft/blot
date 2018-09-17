@@ -13,12 +13,14 @@ import java.util.ArrayList;
 public class BrushTool extends Tool {
     public static int  SIZE;                // реально - половина размера (для ускорения)
 
-    protected BufferedImage imgBrush;       // изображение кисти которым будем рисовать
-    protected BufferedImage imgTmp;         // временное изображение, которое будем обрабатывать
-                                            // оно существует только когда кисть рисует
-    protected Graphics2D    grTmp;
+    private BufferedImage imgBrush;       // изображение кисти которым будем рисовать
+    private BufferedImage imgTmp;         // временное изображение, которое будем обрабатывать
 
-    protected Color color;
+    private DrawPanel drawPanel;          // ссылка на DrawPanel
+                                            // оно существует только когда кисть рисует
+    private Graphics2D    grTmp;
+
+    private Color color;
 
     private int x0, y0;                     // предыдущие координаты
     private int x, y;                       // текущие координаты кисти
@@ -44,17 +46,17 @@ public class BrushTool extends Tool {
 
     public void mousePress(MouseEvent e){
         // создадим временное изображение по размеру рисовательной панели, на которое будем рисовать
-        DrawPanel dpnl = toolPanel.mainWindow.drawPanel;
+        drawPanel = toolPanel.mainWindow.drawPanel;
 
         // сохраним текущие характеристики DrawPanel, чтобы потом корректно пересчитать
         // все в векторной форме
-        fScale = dpnl.getScale();
-        leftDrawPanel = dpnl.getLeft();
-        topDrawPanel = dpnl.getTop();
+        fScale = drawPanel.getScale();
+        leftDrawPanel = drawPanel.getLeft();
+        topDrawPanel = drawPanel.getTop();
 
 
-        img_h = dpnl.getHeight();
-        img_w = dpnl.getWidth();
+        img_h = drawPanel.getHeight();
+        img_w = drawPanel.getWidth();
         imgTmp = new BufferedImage(img_w, img_h, BufferedImage.TYPE_INT_ARGB);
         grTmp = imgTmp.createGraphics();
 
@@ -65,24 +67,24 @@ public class BrushTool extends Tool {
         y0 = y;
 
         grTmp.drawImage(imgBrush, x - SIZE, y - SIZE,null);
-        finish();
+        finish(imgTmp);
     }
 
 
 
     public void mouseRelease(MouseEvent e){
         // найдем все контуры
-        ArrayList<RasterContour> contours = RasterContour.get_contours_from_points(imgTmp, color);//contour_points);
+        ArrayList<RasterContour> contours = RasterContour.get_raster_contours(imgTmp, color);//contour_points);
 
         // тест: нарисуем все контуры
         int col = 0xFF0000FF;
         for (RasterContour c:contours){
-            c.toVContour(imgTmp, SIZE);               // найдем delta для теста
+            c.toVContour(imgTmp, SIZE);
             c.testDraw(imgTmp, col);
             col = 0xFF000000 | (col * 100);
         }
 
-        finish();
+        finish(imgTmp);
         imgTmp = null;
         grTmp = null;
     }
@@ -117,11 +119,7 @@ public class BrushTool extends Tool {
         x0 = x;
         y0 = y;
 
-        finish();
+        finish(imgTmp);
     }
 
-    public void finish(){
-        //Picture.getInstance().getGraphics().drawImage(imgTmp, 0,0, null);
-        toolPanel.mainWindow.drawPanel.repaint();
-    }
 }
