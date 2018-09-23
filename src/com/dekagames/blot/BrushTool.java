@@ -1,6 +1,7 @@
 package com.dekagames.blot;
 
 import com.dekagames.blot.algorithm.RasterContour;
+import com.dekagames.blot.algorithm.VContour;
 
 import javax.swing.*;
 import java.awt.*;
@@ -33,7 +34,7 @@ public class BrushTool extends Tool {
     public BrushTool(ToolPanel parent, ImageIcon icon, String hint){
         super(parent, icon, hint);
 
-        SIZE = 20;
+        SIZE = 10;
 
         imgBrush = new BufferedImage(2 * SIZE, 2 * SIZE, BufferedImage.TYPE_INT_ARGB);
         Graphics2D gr = imgBrush.createGraphics();
@@ -79,8 +80,11 @@ public class BrushTool extends Tool {
         // тест: нарисуем все контуры
         int col = 0xFF0000FF;
         for (RasterContour c:contours){
-            c.toVContour(imgTmp, SIZE);
+            VContour v = c.toVContour(imgTmp, SIZE);
+            v.scale(1/fScale);
+            v.translate(leftDrawPanel, topDrawPanel);
             c.testDraw(imgTmp, col);
+            v.drawContour(imgTmp, fScale, leftDrawPanel, topDrawPanel);
             col = 0xFF000000 | (col * 100);
         }
 

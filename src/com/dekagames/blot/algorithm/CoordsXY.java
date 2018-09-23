@@ -1,4 +1,4 @@
-package com.dekagames.blot;
+package com.dekagames.blot.algorithm;
 
 
 /**

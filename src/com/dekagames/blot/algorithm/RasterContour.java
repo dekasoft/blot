@@ -230,7 +230,7 @@ public class RasterContour {
         // углы найдены - теперь упростим остальные неугловые точки
         // тупо проредим контур если он большой
         final int minDist = brushSize;
-        final int maxDist = 4 * brushSize;
+        final int maxDist = 3 * brushSize;
 
         float min_distance = 0;     // счетчик минимальной дистанции между точками
         float max_distance = 0;     // счетчик максимальной дистанции между точками
@@ -308,11 +308,11 @@ public class RasterContour {
             int x_next = pixels.get(next).x;
             int y_next = pixels.get(next).y;
 
-            int dx = x_next - x-prev;
+            int dx = x_next - x_prev;
             int dy = y_next - y_prev;
 
             // расстояние между предыдущей и последующей точками
-            double len = Math.sqrt(dx*dx + dy*dy);
+            double len = Math.hypot(dx, dy);
 
             // расстояние до предыдущей и последующей точек
             double l1 = Math.hypot(x-x_prev, y-y_prev);
@@ -337,8 +337,6 @@ public class RasterContour {
 
             // добавим точку
             result.addPoint(new VPoint(x*factor, y*factor, p1x*factor, p1y*factor, p2x*factor, p2y*factor));
-
-
         }
 
         return result;
