@@ -12,10 +12,10 @@ import java.util.ArrayList;
  * растрового пятна к векторному контуру
  */
 public class RasterContour {
-    private ArrayList<PixelXY> pixels;
+    private ArrayList<RasterPoint> points;
 
     private RasterContour(){
-        pixels = new ArrayList<>();
+        points = new ArrayList<>();
     }
 
     public void testDraw(BufferedImage img, int color) {
@@ -26,7 +26,7 @@ public class RasterContour {
 
         int c1 = 0xFF/50;
         int col;
-        for (PixelXY p :pixels){
+        for (RasterPoint p : points){
             // цвет в зависимости от cosfi
 //            int c2 = (int)(Math.abs(p.deltaDelta) * c1);
 
@@ -65,14 +65,14 @@ public class RasterContour {
                 if (!done_map[x][y]) {      // если ячейка еще не обработана
                     if (points[x][y]) {     // найден новый контур
                         RasterContour cntr = new RasterContour();
-                        PixelXY p = new PixelXY(x,y);
+                        RasterPoint p = new RasterPoint(x,y);
 
                         while (p != null) {
-                            cntr.pixels.add(p);
+                            cntr.points.add(p);
                             p = find_next_contour_point(p, img_w, img_h, points, done_map);
                         }
                         // невозможно маленькие контуры просто не добавляем
-                        if (cntr.pixels.size() > 4)
+                        if (cntr.points.size() > 4)
                             result.add(cntr);
 
                     }
@@ -100,12 +100,15 @@ public class RasterContour {
         int h = img.getHeight();
 
         // сразу уберем каждую вторую точку
-        for (int i = pixels.size()-1; i>=0; i-=2){
-            pixels.remove(i);
+        for (int i = points.size()-1; i>=0; i-=2){
+            points.remove(i);
         }
 
-        // посчитаем косинус угла при каждой точке
-        int size = pixels.size();
+        // посчитаем косинус угла при каждой точке и найдем уравнение
+        // касательной в каждой точке (делаем на этом этапе, так как так
+        // получится точнее, чем когда будут выкинуты лишние точки)
+
+        int size = points.size();
         int step = 1+brushSize/3;
 
         for (int i = 0; i < size; i++){
@@ -121,30 +124,46 @@ public class RasterContour {
             // косинус угла будем рассчитывать по формуле скалярного произведения в координатной форме
             // cosfi = (x1*x2 + y1*y2)/(|x1,y1|*|x2,y2|) , где (x1,y1) - координаты вектора (ij),
             // (x2,y2) - координаты вектора (k,j)
-            int x1 = pixels.get(i).x - pixels.get(j).x;
-            int y1 = pixels.get(i).y - pixels.get(j).y;
-            int x2 = pixels.get(k).x - pixels.get(j).x;
-            int y2 = pixels.get(k).y - pixels.get(j).y;
+            int x1 = points.get(i).x - points.get(j).x;
+            int y1 = points.get(i).y - points.get(j).y;
+            int x2 = points.get(k).x - points.get(j).x;
+            int y2 = points.get(k).y - points.get(j).y;
             float len1 = (float)Math.sqrt(x1*x1 + y1*y1);
             float len2 = (float)Math.sqrt(x2*x2 + y2*y2);
 
-            pixels.get(j).cosfi = (x1*x2 + y1*y2)/(len1*len2);
+            points.get(j).cosfi = (x1*x2 + y1*y2)/(len1*len2);
+
+
+            // найдем коэффициент k касательной
+            int dx = points.get(k).x - points.get(i).x;
+            int dy = points.get(k).y - points.get(i).y;
+            double k_tan = 1000.0;
+
+            if (dx != 0)
+                k_tan = (double)dy/dx;
+
+            points.get(j).k = k_tan;
+
+            // найдем коэффициент b касательной
+            points.get(j).b = points.get(j).y - k_tan * points.get(j).x;
         }
+
+
 
 
         // детектор SUSAN
         int radius = 1+brushSize/2;       // радиус круга для просмотра. Должен зависеть от размера кисти которым рисовалось пятно (?)
-        size = pixels.size();
+        size = points.size();
 
         // пробежим по всем пикселям контура, будем считать соотношение закрашенных и незакрашенных пикселей
         // в круге с центром в текущем пикселе/
         // предварительно отберем по косинусу
         for (int i = 0; i < size; i++){
-            if (pixels.get(i).cosfi < cornerCos)
+            if (points.get(i).cosfi < cornerCos)
                 continue;
 
-            int x = pixels.get(i).x;
-            int y = pixels.get(i).y;
+            int x = points.get(i).x;
+            int y = points.get(i).y;
 
             float f_full = 0.000001f;       // вес закрашенных пикселей
             float f_empty = 0.000001f;      // вес пустых пикселей
@@ -179,9 +198,9 @@ public class RasterContour {
             if (fratio > 1)
                 fratio = 1/fratio;       // для упрощения (острый/тупой угол)
 
-            pixels.get(i).fratio = fratio;      // понадобится в будущем, при удалении лишних углов
+            points.get(i).fratio = fratio;      // понадобится в будущем, при удалении лишних углов
             if (fratio < cornerRatio)
-                pixels.get(i).isCorner = true;
+                points.get(i).isCorner = true;
 
         }
 
@@ -192,34 +211,34 @@ public class RasterContour {
 
         // начинать надо с пикселя, следующего за обычным (неугловым), поэтому найдем такой
         int start = 0;
-        for (start = 0; start < pixels.size() &&  pixels.get(start).isCorner; start++);   // пустой цикл  - ищем неугловой пиксель
+        for (start = 0; start < points.size() &&  points.get(start).isCorner; start++);   // пустой цикл  - ищем неугловой пиксель
 
         int n_corners = 0;      // число подряд идущих углов
 
-        for (int i = 1; i <= pixels.size(); i++){       // i=1 потому что начинаем со следующего за пустым пикселем
+        for (int i = 1; i <= points.size(); i++){       // i=1 потому что начинаем со следующего за пустым пикселем
             int ind = start+i;
-            while (ind >= pixels.size())           // закольцуем
-                    ind -= pixels.size();
+            while (ind >= points.size())           // закольцуем
+                    ind -= points.size();
 
 
-            if (pixels.get(ind).isCorner){      // если пиксель угловой, сразу его отменим, но посчитаем
-                pixels.get(ind).isCorner = false;
+            if (points.get(ind).isCorner){      // если пиксель угловой, сразу его отменим, но посчитаем
+                points.get(ind).isCorner = false;
                 n_corners++;
             } else {                            // пиксель неугловой
                 if (n_corners == 1){            // если пиксель был один, то вернем его на место - это точно угол
                     int prev = ind - 1;
                     while (prev < 0)
-                        prev += pixels.size();
+                        prev += points.size();
 
-                    pixels.get(prev).isCorner = true;
+                    points.get(prev).isCorner = true;
                 }
 
                 if (n_corners > 1) {           // и перед ним были несколько угловых - найдем центральный (они уже все удалены)
                     int corner_index = ind - n_corners/2 - 1;   // индекс реального угла
                     while (corner_index < 0)
-                        corner_index += pixels.size();
+                        corner_index += points.size();
 
-                    pixels.get(corner_index).isCorner = true;
+                    points.get(corner_index).isCorner = true;
                 }
 
                 n_corners = 0;
@@ -235,23 +254,23 @@ public class RasterContour {
         float min_distance = 0;     // счетчик минимальной дистанции между точками
         float max_distance = 0;     // счетчик максимальной дистанции между точками
 
-        if (pixels.size() > 3) {
+        if (points.size() > 3) {
 
-            ArrayList<PixelXY> tmpPixels = new ArrayList<>();
-            tmpPixels.add(pixels.get(0));
+            ArrayList<RasterPoint> tmpPixels = new ArrayList<>();
+            tmpPixels.add(points.get(0));
 
-            for (int i = 1; i < pixels.size(); i++) {
+            for (int i = 1; i < points.size(); i++) {
                 int j = i - 1;            // предыдущая точка
 
-                if (pixels.get(i).isCorner){            // угловые точки всегда добавляем
-                    tmpPixels.add(pixels.get(i));
+                if (points.get(i).isCorner){            // угловые точки всегда добавляем
+                    tmpPixels.add(points.get(i));
                     min_distance = 0;
                     max_distance = 0;
                 } else {
-                    int x1 = pixels.get(i).x;
-                    int y1 = pixels.get(i).y;
-                    int x2 = pixels.get(j).x;
-                    int y2 = pixels.get(j).y;
+                    int x1 = points.get(i).x;
+                    int y1 = points.get(i).y;
+                    int x2 = points.get(j).x;
+                    int y2 = points.get(j).y;
                     float distance = (float)Math.hypot((x1 - x2), (y1 - y2));
                     min_distance += distance;
                     max_distance += distance;
@@ -261,12 +280,12 @@ public class RasterContour {
                        min_distance = 0;
 
                        if (max_distance >= maxDist){    // набрали максимальную дистанцию - ставим точку по-любому
-                           tmpPixels.add(pixels.get(i));
+                           tmpPixels.add(points.get(i));
                            max_distance = 0;
                        } else {                         // если не набрали еще максимальную дистанцию - проверим плоскоту участка
                            // если участок не сильно плоский, то добавим точку, иначе пойдем дальше
-                           if (pixels.get(i).cosfi > cornerCos) {
-                               tmpPixels.add(pixels.get(i));
+                           if (points.get(i).cosfi > cornerCos) {
+                               tmpPixels.add(points.get(i));
                                min_distance = 0;
                                max_distance = 0;
                            }
@@ -274,23 +293,23 @@ public class RasterContour {
                     }
                 }
             }
-            pixels = tmpPixels;
+            points = tmpPixels;
         }
 
         // создадим векторный контур, рассчитаем и запишем в него точки
         // векторный контур создается так, что координата (0;0) находится
         // в левом верхнем углу, как у растра. Для перевода в систему координат
         // Picture, необходимо вызвать соответствующий метод
-        size = pixels.size();
+        size = points.size();
         double factor = Picture.getInstance().getPixelSize();   // коэффициент перевода в вектор
         for (int i = 0; i < size; i++){
 
-            int x = pixels.get(i).x;
-            int y = pixels.get(i).y;
+            int x = points.get(i).x;
+            int y = points.get(i).y;
 
             // если угловая точка
-            if (pixels.get(i).isCorner){
-                result.addPoint(new VPoint(x * factor, y * factor, true ));
+            if (points.get(i).isCorner){
+                result.addPoint(new VPoint(x * factor, y * factor));
                 continue;
             }
             // предыдущая и последующая точки
@@ -302,11 +321,11 @@ public class RasterContour {
             while(next >=size)
                 next -= size;
 
-            int x_prev = pixels.get(prev).x;
-            int y_prev = pixels.get(prev).y;
+            int x_prev = points.get(prev).x;
+            int y_prev = points.get(prev).y;
 
-            int x_next = pixels.get(next).x;
-            int y_next = pixels.get(next).y;
+            int x_next = points.get(next).x;
+            int y_next = points.get(next).y;
 
             int dx = x_next - x_prev;
             int dy = y_next - y_prev;
@@ -403,7 +422,7 @@ public class RasterContour {
     // возвращает null. Помечает все просмотренные точки. w, h -  размер карты
     // points - boolean карта контурных точек
     // done_map - уже просмотренные точки
-    private static PixelXY find_next_contour_point(PixelXY p, int w, int h, boolean[][]points, boolean[][] done_map) {
+    private static RasterPoint find_next_contour_point(RasterPoint p, int w, int h, boolean[][]points, boolean[][] done_map) {
         // просматриваем точки, окружающие p, начиная с верхней, по часовой стрелке.
         // для оптимизации контура, сначала просматриваем все "диагональные" соседние точки
         // а потом все остальные. при нахождении точки, помечаем всех соседей как просмотренных
@@ -416,7 +435,7 @@ public class RasterContour {
         if (y >= 0 && x <= w-1){
             if(!done_map[x][y] && points[x][y]) {
                 make_neighbors_done(p, w, h, done_map);
-                return new PixelXY(x, y);
+                return new RasterPoint(x, y);
             }
         }
         // нижняя правая точка
@@ -425,7 +444,7 @@ public class RasterContour {
         if (y <= h-1 && x <= w-1){
             if(!done_map[x][y] && points[x][y]) {
                 make_neighbors_done(p, w, h, done_map);
-                return new PixelXY(x, y);
+                return new RasterPoint(x, y);
             }
         }
         // нижняя левая точка
@@ -434,7 +453,7 @@ public class RasterContour {
         if (y <= h-1 && x >= 0){
             if(!done_map[x][y] && points[x][y]) {
                 make_neighbors_done(p, w, h, done_map);
-                return new PixelXY(x, y);
+                return new RasterPoint(x, y);
             }
         }
         // верхняя левая точка
@@ -443,7 +462,7 @@ public class RasterContour {
         if (y >= 0 && x >= 0){
             if(!done_map[x][y] && points[x][y]) {
                 make_neighbors_done(p, w, h, done_map);
-                return new PixelXY(x, y);
+                return new RasterPoint(x, y);
             }
         }
         // --------------- соседи по горизонтали и вертикали
@@ -453,7 +472,7 @@ public class RasterContour {
         if (x <= w-1){
             if(!done_map[x][y] && points[x][y]) {
                 make_neighbors_done(p, w, h, done_map);
-                return new PixelXY(x, y);
+                return new RasterPoint(x, y);
             }
         }
         // нижняя точка
@@ -462,7 +481,7 @@ public class RasterContour {
         if (y <= h-1){
             if(!done_map[x][y] && points[x][y]) {
                 make_neighbors_done(p, w, h, done_map);
-                return new PixelXY(x, y);
+                return new RasterPoint(x, y);
             }
         }
         // левая точка
@@ -471,7 +490,7 @@ public class RasterContour {
         if (x >= 0){
             if(!done_map[x][y] && points[x][y]) {
                 make_neighbors_done(p, w, h, done_map);
-                return new PixelXY(x, y);
+                return new RasterPoint(x, y);
             }
         }
         // верхняя точка
@@ -480,7 +499,7 @@ public class RasterContour {
         if (y >= 0){
             if(!done_map[x][y] && points[x][y]) {
                 make_neighbors_done(p, w, h, done_map);
-                return new PixelXY(x, y);
+                return new RasterPoint(x, y);
             }
         }
 
@@ -491,7 +510,7 @@ public class RasterContour {
 
     // помечает соседние с точкой p точки как true. Осуществляет проверку на
     // выход за границы карты. w,h - размер карты. done_map - уже просмотренные точки
-    private static void make_neighbors_done(PixelXY p, int w, int h, boolean[][] done_map){
+    private static void make_neighbors_done(RasterPoint p, int w, int h, boolean[][] done_map){
         done_map[p.x][p.y] = true;              // сама точка
         if (p.x > 0)                done_map[p.x-1][p.y] = true;        // слева
         if (p.y > 0)                done_map[p.x][p.y-1] = true;        // сверху

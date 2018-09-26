@@ -8,19 +8,11 @@ package com.dekagames.blot.algorithm;
  * используется для получения/передачи координат при преобразовании
  * и в других подобных случаях.
  */
-public class CoordsXY {
-    private double x,y;
+public class VCoords {
+    double x,y;
 
-    public CoordsXY(double x, double y){
+    public VCoords(double x, double y){
         this.x = x;
         this.y = y;
-    }
-
-    public double getX() {
-        return x;
-    }
-
-    public double getY() {
-        return y;
     }
 }

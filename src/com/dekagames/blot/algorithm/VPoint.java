@@ -7,11 +7,10 @@ package com.dekagames.blot.algorithm;
  *
  */
 
-public class VPoint {
+public class VPoint extends VCoords {
 
     public boolean isCorner;    // является ли точка острым углом.
                                 // если true, то p1x, p2x, p1y, p2y не учитываются (равны x и y)
-    public double x,y;          // координаты самой точки
 
     // координаты опорных точек. Опорные точки для неугловых точек контура лежат на одной прямой
     // касательной к контуру. Для угловых точек координаты опорных точек совпадают с координатами
@@ -24,8 +23,7 @@ public class VPoint {
 
     // конструктор создания обычной точки
     public VPoint(double x, double y, double p1x, double p1y, double p2x, double p2y){
-        this.x = x;
-        this.y = y;
+        super(x, y);
         this.p1x = p1x;
         this.p1y = p1y;
         this.p2x = p2x;
@@ -33,16 +31,17 @@ public class VPoint {
     }
 
     // конструктор создания угла
-    public VPoint(double x, double y, boolean isCorner){
-        this.isCorner = isCorner;
-        this.x = p1x = p2x = x;
-        this.y = p1y = p2y = y;
+    public VPoint(double x, double y){
+        super(x, y);
+        this.isCorner = true;
+
+        p1x = p2x = x;
+        p1y = p2y = y;
     }
 
     // конструктор копирования
     public VPoint(VPoint p){
-        x = p.x;
-        y = p.y;
+        super(p.x, p.y);
         p1x = p.p1x;
         p1y = p.p1y;
         p2x = p.p2x;

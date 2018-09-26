@@ -2,7 +2,6 @@ package com.dekagames.blot.algorithm;
 
 import com.dekagames.blot.Picture;
 
-import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
 
@@ -24,7 +23,7 @@ public class VBezierCurve {
      * @param t - параметр t - [0, 1]
      * @return
      */
-    public CoordsXY getCurvePoint(double t){
+    public VCoords getCurvePoint(double t){
         if (t < 0) t = 0;
         if (t > 1) t = 1;
 
@@ -38,7 +37,7 @@ public class VBezierCurve {
                        3*(1-t)*t*t*p2.p1y +
                           t*t*t*p2.y;
 
-        return new CoordsXY(x,y);
+        return new VCoords(x,y);
 
     }
 
@@ -63,10 +62,10 @@ public class VBezierCurve {
 //        gr.setColor(Color.BLACK);
 
         for(double t = 0; t <= 1; t+=0.01){
-            CoordsXY cxy = getCurvePoint(t);
+            VCoords cxy = getCurvePoint(t);
 
-            int x = (int)Math.round((cxy.getX() * fscale - left) / factor);
-            int y = (int)Math.round((cxy.getY() * fscale - top) / factor);
+            int x = (int)Math.round((cxy.x * fscale - left) / factor);
+            int y = (int)Math.round((cxy.y * fscale - top) / factor);
 
             if (x >= 0 && x < w && y >= 0 && y < h)
                 data[y*w+x] = 0xFF000000;
