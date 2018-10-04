@@ -51,19 +51,24 @@ public class VContour {
             long y0 = Math.round((p.y * fscale - top) / factor);
 
             // опорные точки
-            long x1 = Math.round((p.p1x * fscale - left) / factor);
-            long y1 = Math.round((p.p1y * fscale - top) / factor);
+            long x1 = Math.round((p.p1.x * fscale - left) / factor);
+            long y1 = Math.round((p.p1.y * fscale - top) / factor);
 
-            long x2 = Math.round((p.p2x * fscale - left) / factor);
-            long y2 = Math.round((p.p2y * fscale - top) / factor);
+            long x2 = Math.round((p.p2.x * fscale - left) / factor);
+            long y2 = Math.round((p.p2.y * fscale - top) / factor);
 
-            gr.drawOval((int)(x0-2), (int)(y0-2), 4, 4);
+            // опорные точки
+            gr.setColor(Color.MAGENTA);
             gr.drawRect((int)(x1-2), (int)(y1-2), 4, 4);
             gr.drawRect((int)(x2-2), (int)(y2-2), 4, 4);
 
             gr.setColor(Color.DARK_GRAY);
             gr.drawLine((int) x1, (int) y1, (int)x0, (int)y0);
             gr.drawLine((int) x0, (int) y0, (int)x2, (int)y2);
+
+            // точка
+            gr.setColor(Color.GREEN);
+            gr.fillOval((int)(x0-2), (int)(y0-2), 4, 4);
 
 //            data[p.y*w+p.x] = col;
         }
@@ -87,26 +92,16 @@ public class VContour {
 
 
     // перерассчитывает точки в соответствии с масштабом
-    public void scale(float fscale){
+    public void scale(double scale){
         for (VPoint p:points){
-            p.x *= fscale;
-            p.y *= fscale;
-            p.p1x *= fscale;
-            p.p1y *= fscale;
-            p.p2x *= fscale;
-            p.p2y *= fscale;
+            p.scale(scale);
         }
     }
 
 
     public void translate(double fx, double fy){
         for (VPoint p:points){
-            p.x += fx;
-            p.y += fy;
-            p.p1x += fx;
-            p.p1y += fy;
-            p.p2x += fx;
-            p.p2y += fy;
+            p.translate(fx, fy);
         }
     }
 

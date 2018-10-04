@@ -24,6 +24,7 @@ public class RasterCoords {
         return Math.hypot(x - toX, y - toY);
     }
 
+
     /**
      * Косинус угла с вершиной в данной точке и лучами в две другие точки
      */
@@ -39,6 +40,16 @@ public class RasterCoords {
         double len2 = Math.hypot(x2, y2);
 
         return (x1*x2 + y1*y2)/(len1*len2);
+    }
+
+
+    /**
+     * Возвращает координаты середины отрезка между точкой p и текущей
+     * @param p
+     * @return
+     */
+    public RasterCoords getMiddleTo(RasterCoords p){
+        return new RasterCoords((p.x + x)/2, (p.y+y)/2);
     }
 
 }

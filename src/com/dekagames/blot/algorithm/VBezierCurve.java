@@ -6,14 +6,14 @@ import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
 
 public class VBezierCurve {
-    private VPoint p1;
-    private VPoint p2;
+    private VPoint startPoint;
+    private VPoint endPoint;
 
 
 
-    public VBezierCurve(VPoint p1, VPoint p2){
-        this.p1 = p1;
-        this.p2 = p2;
+    public VBezierCurve(VPoint startPoint, VPoint endPoint){
+        this.startPoint = startPoint;
+        this.endPoint = endPoint;
     }
 
 
@@ -27,15 +27,15 @@ public class VBezierCurve {
         if (t < 0) t = 0;
         if (t > 1) t = 1;
 
-        double x = (1-t)*(1-t)*(1-t)*p1.x +
-                     3*(1-t)*(1-t)*t*p1.p2x +
-                       3*(1-t)*t*t*p2.p1x +
-                          t*t*t*p2.x;
+        double x = (1-t)*(1-t)*(1-t)* startPoint.x +
+                     3*(1-t)*(1-t)*t* startPoint.p2.x +
+                       3*(1-t)*t*t* endPoint.p1.x +
+                          t*t*t* endPoint.x;
 
-        double y = (1-t)*(1-t)*(1-t)*p1.y +
-                     3*(1-t)*(1-t)*t*p1.p2y +
-                       3*(1-t)*t*t*p2.p1y +
-                          t*t*t*p2.y;
+        double y = (1-t)*(1-t)*(1-t)* startPoint.y +
+                     3*(1-t)*(1-t)*t* startPoint.p2.y +
+                       3*(1-t)*t*t* endPoint.p1.y +
+                          t*t*t* endPoint.y;
 
         return new VCoords(x,y);
 

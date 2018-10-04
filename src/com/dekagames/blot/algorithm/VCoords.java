@@ -15,4 +15,15 @@ public class VCoords {
         this.x = x;
         this.y = y;
     }
+
+
+    public void scale(double scale){
+        x *= scale;
+        y *= scale;
+    }
+
+    public void translate(double fx, double fy){
+        x += fx;
+        y += fy;
+    }
 }

@@ -121,31 +121,16 @@ public class RasterContour {
             int k = j + step;
             while (k >= size) k = k - size;
 
-            // косинус угла будем рассчитывать по формуле скалярного произведения в координатной форме
-            // cosfi = (x1*x2 + y1*y2)/(|x1,y1|*|x2,y2|) , где (x1,y1) - координаты вектора (ij),
-            // (x2,y2) - координаты вектора (k,j)
-            int x1 = points.get(i).x - points.get(j).x;
-            int y1 = points.get(i).y - points.get(j).y;
-            int x2 = points.get(k).x - points.get(j).x;
-            int y2 = points.get(k).y - points.get(j).y;
-            float len1 = (float)Math.sqrt(x1*x1 + y1*y1);
-            float len2 = (float)Math.sqrt(x2*x2 + y2*y2);
+            RasterPoint currPoint = points.get(j);
+            RasterPoint prevPoint = points.get(i);
+            RasterPoint nextPoint = points.get(k);
 
-            points.get(j).cosfi = (x1*x2 + y1*y2)/(len1*len2);
+            // косинус угла
+            currPoint.cosfi = currPoint.getCos(prevPoint, nextPoint);
 
-
-            // найдем коэффициент k касательной
-            int dx = points.get(k).x - points.get(i).x;
-            int dy = points.get(k).y - points.get(i).y;
-            double k_tan = 1000.0;
-
-            if (dx != 0)
-                k_tan = (double)dy/dx;
-
-            points.get(j).k = k_tan;
-
-            // найдем коэффициент b касательной
-            points.get(j).b = points.get(j).y - k_tan * points.get(j).x;
+            // найдем касательную в точке
+            RasterLine line = new RasterLine(prevPoint, nextPoint);
+            currPoint.tangent = line.getParallel(currPoint);
         }
 
 
@@ -206,7 +191,7 @@ public class RasterContour {
 
 
         // пробежим по контуру в поисках нескольких угловых точек подряд - оставим из них одну, среднюю.
-        // одиночные угловые точки не выкидываем, так как применяется предварительное отсечение по
+        // одиночные угловые точки не выкидываем, так как применялось предварительное отсечение по
         // косинусу угла
 
         // начинать надо с пикселя, следующего за обычным (неугловым), поэтому найдем такой
@@ -226,6 +211,7 @@ public class RasterContour {
                 n_corners++;
             } else {                            // пиксель неугловой
                 if (n_corners == 1){            // если пиксель был один, то вернем его на место - это точно угол
+                                                // (он прошел проверку по косинусу и по susan и при этом один. Точно угол)
                     int prev = ind - 1;
                     while (prev < 0)
                         prev += points.size();
@@ -249,7 +235,7 @@ public class RasterContour {
         // углы найдены - теперь упростим остальные неугловые точки
         // тупо проредим контур если он большой
         final int minDist = brushSize;
-        final int maxDist = 3 * brushSize;
+        final int maxDist = 4 * brushSize;
 
         float min_distance = 0;     // счетчик минимальной дистанции между точками
         float max_distance = 0;     // счетчик максимальной дистанции между точками
@@ -304,12 +290,11 @@ public class RasterContour {
         double factor = Picture.getInstance().getPixelSize();   // коэффициент перевода в вектор
         for (int i = 0; i < size; i++){
 
-            int x = points.get(i).x;
-            int y = points.get(i).y;
+            RasterPoint currPoint = points.get(i);
 
             // если угловая точка
-            if (points.get(i).isCorner){
-                result.addPoint(new VPoint(x * factor, y * factor));
+            if (currPoint.isCorner){
+                result.addPoint(new VPoint(currPoint.x * factor, currPoint.y * factor));
                 continue;
             }
             // предыдущая и последующая точки
@@ -321,41 +306,39 @@ public class RasterContour {
             while(next >=size)
                 next -= size;
 
-            int x_prev = points.get(prev).x;
-            int y_prev = points.get(prev).y;
+            RasterPoint prevPoint = points.get(prev);
+            RasterPoint nextPoint = points.get(next);
 
-            int x_next = points.get(next).x;
-            int y_next = points.get(next).y;
+            // расстояние до предыдущей и последующей точки
+            double dist_curr_prev = currPoint.distanceTo(prevPoint.x, prevPoint.y);
+            double dist_curr_next = currPoint.distanceTo(nextPoint.x, nextPoint.y);
 
-            int dx = x_next - x_prev;
-            int dy = y_next - y_prev;
+            // найдем точки p1 и p2 в первом варианте
+            RasterCoords p1_1 = currPoint.tangent.getPointOnDistanceFrom(currPoint, -dist_curr_prev/3);
+            RasterCoords p2_1 = currPoint.tangent.getPointOnDistanceFrom(currPoint, dist_curr_next/3);
 
-            // расстояние между предыдущей и последующей точками
-            double len = Math.hypot(dx, dy);
+            // найдем точки p1 и p2 во втором варианте
+            RasterCoords p1_2 = currPoint.tangent.getPointOnDistanceFrom(currPoint, dist_curr_prev/3);
+            RasterCoords p2_2 = currPoint.tangent.getPointOnDistanceFrom(currPoint, -dist_curr_next/3);
 
-            // расстояние до предыдущей и последующей точек
-            double l1 = Math.hypot(x-x_prev, y-y_prev);
-//            double l2 = Math.hypot(x-x_next, y-y_next);
+            // расстояние от prev до next по первому и по второму варианту
+            double l1 = prevPoint.distanceTo(p1_1.x, p1_1.y) + p1_1.distanceTo(p2_1.x, p2_1.y) + p2_1.distanceTo(nextPoint.x, nextPoint.y);
+            double l2 = prevPoint.distanceTo(p1_2.x, p1_2.y) + p1_2.distanceTo(p2_2.x, p2_2.y) + p2_2.distanceTo(nextPoint.x, nextPoint.y);
 
-            // расстояние от текущей точки, до прямой проведенной через предыдущую
-            // и последующие точки
-            double dist =  Math.abs(dy*x - dx*y + x_next*y_prev - y_next*x_prev)/len;
-
-            // расстояние от точки пересечения перпендикуляра к прямой между предудущей
-            // и последующей точками, опущенного из текущей точки, до предыдущей и последующей
-            // точек соответственно
-            double len_prev = Math.sqrt(l1*l1-dist*dist);
-            double len_next = len-l1;
-
-            // координаты опорных точек в растровой форме
-            double p1x = x - (len_prev * dx/len)/3;
-            double p1y = y - (len_prev * dy/len)/3;
-
-            double p2x = x + (len_next * dx/len)/3;
-            double p2y = y + (len_next * dy/len)/3;
+            // выберем нужные точки
+            RasterCoords p1, p2;
+            if (l1 < l2){       // первый вариант
+                p1 = p1_1;
+                p2 = p2_1;
+            } else {            // второй вариант
+                p1 = p1_2;
+                p2 = p2_2;
+            }
 
             // добавим точку
-            result.addPoint(new VPoint(x*factor, y*factor, p1x*factor, p1y*factor, p2x*factor, p2y*factor));
+            result.addPoint(new VPoint(currPoint.x * factor, currPoint.y * factor,
+                                                        p1.x * factor, p1.y * factor,
+                                                               p2.x * factor, p2.y * factor));
         }
 
         return result;
