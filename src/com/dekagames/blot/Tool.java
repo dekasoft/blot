@@ -1,5 +1,7 @@
 package com.dekagames.blot;
 
+import com.dekagames.blot.ToolPanel;
+
 import javax.swing.*;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
@@ -21,7 +23,7 @@ public class Tool {
     protected double leftDrawPanel, topDrawPanel;
 
 
-    protected ToolPanel   toolPanel;
+    protected ToolPanel toolPanel;
 
 
     public Tool(ToolPanel parent, ImageIcon icon, String hint){

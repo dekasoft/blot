@@ -1,4 +1,7 @@
-package com.dekagames.blot;
+package com.dekagames.blot.tools;
+
+import com.dekagames.blot.Tool;
+import com.dekagames.blot.ToolPanel;
 
 import javax.swing.*;
 

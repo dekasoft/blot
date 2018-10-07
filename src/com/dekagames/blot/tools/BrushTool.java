@@ -1,5 +1,8 @@
-package com.dekagames.blot;
+package com.dekagames.blot.tools;
 
+import com.dekagames.blot.DrawPanel;
+import com.dekagames.blot.Tool;
+import com.dekagames.blot.ToolPanel;
 import com.dekagames.blot.algorithm.RasterContour;
 import com.dekagames.blot.algorithm.VContour;
 

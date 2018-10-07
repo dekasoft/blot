@@ -1,5 +1,8 @@
 package com.dekagames.blot;
 
+import com.dekagames.blot.tools.BrushTool;
+import com.dekagames.blot.tools.PencilTool;
+
 import javax.swing.*;
 import java.awt.event.MouseEvent;
 
@@ -23,8 +26,8 @@ public class ToolPanel extends JPanel implements DrawPanelEventListener {
 
 
     // available tools
-    public PencilTool   pencilTool;
-    public BrushTool    brushTool;
+    public PencilTool pencilTool;
+    public BrushTool brushTool;
 
     // selected tool
     public Tool currentTool;
